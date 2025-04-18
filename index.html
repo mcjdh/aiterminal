@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Escape</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: #000000;
+            color: #FFFFFF;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #terminal {
+            width: 95%;
+            max-width: 640px; /* Classic terminal width */
+            height: calc(85vh - 120px); /* Reduce height to account for buttons */
+            margin: 0 auto 70px; /* Add bottom margin for fixed buttons */
+            border: 3px double #FFFFFF;
+            padding: 15px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: #000000;
+            text-shadow: 0 0 2px #FFFFFF;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2),
+                        inset 0 0 15px rgba(255, 255, 255, 0.1); /* Add subtle glow */
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+        }
+
+        #terminal::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(255, 255, 255, 0.03) 0px,
+                    rgba(255, 255, 255, 0.03) 1px,
+                    transparent 1px,
+                    transparent 2px
+                ),
+                linear-gradient(
+                    45deg,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.05) 50%,
+                    transparent 100%
+                );
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+
+        #terminal::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: 
+                radial-gradient(
+                    circle at center,
+                    transparent 0%,
+                    rgba(0, 0, 0, 0.3) 100%
+                ),
+                repeating-linear-gradient(
+                    45deg,
+                    rgba(255, 255, 255, 0.02) 0px,
+                    rgba(255, 255, 255, 0.02) 1px,
+                    transparent 1px,
+                    transparent 10px
+                );
+            pointer-events: none;
+            animation: iceShift 20s linear infinite;
+        }
+
+        .terminal-line {
+            position: relative;
+            padding: 2px 0;
+            overflow: hidden;
+        }
+
+        .terminal-line::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .terminal-line::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255,255,255,0.1) 45%,
+                rgba(255,255,255,0.1) 55%,
+                transparent 100%
+            );
+            animation: scanEffect 2s linear infinite;
+            pointer-events: none;
+        }
+
+        #terminal-header {
+            border-bottom: 3px double #FFFFFF;
+            padding: 5px;
+            margin-bottom: 10px;
+            font-size: 0.8em;
+            display: flex;
+            justify-content: space-between;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #terminal-output {
+            flex-grow: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #FFFFFF #000000;
+            padding-right: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        #terminal-output::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #terminal-output::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        #terminal-output::-webkit-scrollbar-thumb {
+            background: #FFFFFF;
+        }
+
+        #cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: #FFFFFF;
+            animation: blink 1s step-end infinite;
+            box-shadow: 0 0 4px #FFFFFF;
+        }
+
+        #command-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.95);
+            border-top: 1px solid #FFFFFF;
+            z-index: 101; /* Ensure buttons stay on top */
+        }
+
+        button {
+            background: #000000;
+            color: #FFFFFF;
+            border: 2px solid #FFFFFF;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: background-color 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 2px #FFFFFF;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        button:hover {
+            background: #FFFFFF;
+            color: #000000;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(100vh); }
+        }
+
+        @keyframes glitch {
+            0% { text-shadow: 2px 0 0 #FFF; }
+            25% { text-shadow: -2px 0 0 #FFF; }
+            50% { text-shadow: 2px 0 0 #FFF; }
+            75% { text-shadow: -2px 0 0 #FFF; }
+            100% { text-shadow: 2px 0 0 #FFF; }
+        }
+
+        @keyframes severeGlitch {
+            0% { transform: none; filter: none; }
+            7% { transform: skew(-2deg); filter: hue-rotate(90deg); }
+            10% { transform: none; filter: none; }
+            18% { transform: skew(2deg); filter: brightness(1.3); }
+            20% { transform: none; filter: none; }
+            23% { transform: translate(3px, 0); filter: invert(0.1); }
+            25% { transform: none; filter: none; }
+        }
+
+        @keyframes iceShift {
+            0% { background-position: 0 0; }
+            50% { background-position: 30px 30px; }
+            100% { background-position: 0 0; }
+        }
+
+        @keyframes scanEffect {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .glitch-text {
+            animation: glitch 0.1s infinite;
+        }
+
+        #decrypt-interface {
+            position: fixed;
+            bottom: 60px; /* Space for main command buttons */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            max-width: 640px; /* Match terminal width */
+            background: rgba(0, 0, 0, 0.95);
+            border-top: 2px solid #FFFFFF;
+            border-bottom: 2px solid #FFFFFF;
+            padding: 10px 5px;
+            z-index: 100;
+            max-height: 30vh;
+            overflow-y: auto;
+            box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.1);
+        }
+
+        #decrypt-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 5px;
+            padding: 5px;
+            justify-content: center;
+            margin: 0 auto;
+            max-width: 600px;
+        }
+
+        .decrypt-option {
+            min-width: 50px;
+            height: 35px;
+            margin: 3px;
+            padding: 8px 12px;
+            font-size: 14px;
+            background: #000000;
+            color: #FFFFFF;
+            border: 2px solid #FFFFFF;
+            text-shadow: 0 0 2px #FFFFFF;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes frostShift {
+            0% { background-position: 0 0; }
+            100% { background-position: 50px 50px; }
+        }
+
+        #decrypt-interface::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #decrypt-interface::-webkit-scrollbar-track {
+            background: #000000;
+        }
+
+        #decrypt-interface::-webkit-scrollbar-thumb {
+            background: #FFFFFF;
+            border-radius: 2px;
+        }
+
+        .decrypt-option:hover {
+            background: #FFFFFF;
+            color: #000000;
+            cursor: pointer;
+        }
+
+        .hint-text {
+            color: #FFFFFF;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* Add this CSS for story updates */
+        .story-update {
+            color: #FFFFFF; /* White for emphasis */
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        /* Add this CSS for AI messages */
+        .ai-message {
+            font-style: italic;
+            text-shadow: 0 0 3px #FFFFFF;
+        }
+
+        /* Add this CSS for quest logs */
+        .quest-log {
+            color: #00FFFF; /* Cyan for quests */
+            font-weight: bold;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            #terminal {
+                height: calc(70vh - 120px);
+                margin-bottom: 80px; /* Space for decrypt interface */
+            }
+
+            #decrypt-interface {
+                bottom: 50px;
+                max-height: 25vh;
+            }
+
+            #decrypt-options {
+                grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+            }
+
+            .decrypt-option {
+                min-height: 32px;
+                font-size: 12px;
+                padding: 3px;
+            }
+
+            .decrypt-option {
+                min-width: 45px;
+                height: 40px;
+                margin: 2px;
+                padding: 8px;
+                font-size: 12px;
+            }
+
+            button {
+                padding: 12px 15px;
+                font-size: 16px;
+            }
+        }
+
+        .warning-text {
+            color: #FFFFFF;
+            animation: warning-flash 0.5s infinite, severeGlitch 2s infinite;
+            text-shadow: 
+                0 0 5px #FFF,
+                0 0 10px #FFF;
+        }
+
+        .environmental-data {
+            color: #FFFFFF;
+            text-shadow: 0 0 5px #FFFFFF;
+        }
+
+        .quantum-text {
+            animation: quantum-shift 2s infinite, severeGlitch 3s infinite;
+            position: relative;
+        }
+
+        .quantum-glitch {
+            animation: quantum-glitch 0.1s infinite;
+            text-shadow: 
+                0 0 5px #FFF,
+                0 0 10px #FFF,
+                0 0 15px #FFF;
+        }
+
+        @keyframes quantum-shift {
+            0%, 100% { text-shadow: 0 0 2px #FFFFFF; }
+            50% { text-shadow: 0 0 8px #FFFFFF; }
+        }
+
+        @keyframes quantum-glitch {
+            0%, 100% { opacity: 1; transform: skew(0deg); }
+            50% { opacity: 0.8; transform: skew(10deg); }
+        }
+
+        .cold-effect {
+            text-shadow: 
+                0 0 2px #ADD8E6,
+                0 0 4px #ADD8E6;
+            animation: tempFlicker 4s infinite;
+        }
+
+        .warm-effect {
+            text-shadow: 
+                0 0 2px #FFD700,
+                0 0 4px #FFA500;
+            animation: tempFlicker 2s infinite;
+        }
+
+        @keyframes tempFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .ice-pattern {
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.1) 0%,
+                rgba(255,255,255,0.2) 50%,
+                rgba(255,255,255,0.1) 100%
+            );
+        }
+
+        .sound-toggle {
+            min-width: 90px;
+            border-color: #444;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+        }
+        
+        .sound-toggle:hover {
+            border-color: #FFF;
+            opacity: 1;
+        }
+        
+        .sound-toggle.muted {
+            background: #222;
+            border-color: #333;
+            opacity: 0.6;
+        }
+        
+        .sound-toggle.muted:hover {
+            border-color: #666;
+            opacity: 0.8;
+        }
+
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        #start-title {
+            font-size: 1.2em;
+            margin-bottom: 2em;
+            text-align: center;
+            animation: glitch 0.1s infinite;
+        }
+
+        #connect-button {
+            background: #000;
+            color: #FFF;
+            border: 2px solid #FFF;
+            padding: 15px 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2em;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #connect-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.2),
+                transparent
+            );
+            animation: scanEffect 2s linear infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+    </style>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+</head>
+<body>
+    <div id="start-screen">
+        <div id="start-title">
+            <pre>
+█▀█ █▀█ █▀█ ░░█ █▀▀ █▀▀ ▀█▀
+█▀▀ █▀▄ █▄█ █▄█ ██▄ █▄▄ ░█░
+█░█░█ █ █▄░█ ▀█▀ █▀▀ █▀█
+▀▄▀▄▀ █ █░▀█ ░█░ ██▄ █▀▄</pre>
+            <p>REMOTE ACCESS TERMINAL v2.187</p>
+            <p>[ CLASSIFIED // LEVEL 5 CLEARANCE REQUIRED ]</p>
+        </div>
+        <button id="connect-button">╾ ESTABLISH CONNECTION ╼</button>
+    </div>
+    <div id="terminal">
+        <div id="terminal-header">
+            <span>SYSTEM://neural-interface</span>
+            <span class="status">STATUS: ACTIVE</span>
+        </div>
+        <div id="terminal-output"></div>
+        <div id="decrypt-interface">
+            <div class="hint-text"></div>
+            <div id="decrypt-options"></div>
+        </div>
+        <span id="cursor"></span>
+    </div>
+    <div id="command-buttons"></div>
+
+    <!-- Load scripts in correct order -->
+    <script src="js/terminalCore.js"></script>
+    <script src="js/uiDesign.js"></script>
+    <script src="js/questPatterns.js"></script>
+    <script src="js/keyPATTERNS.js"></script>
+    <script src="js/storyCore.js"></script>
+    <script src="js/soundManager.js"></script>
+    <script>
+        // Modify the initialization script
+        document.addEventListener('DOMContentLoaded', () => {
+            const startScreen = document.getElementById('start-screen');
+            const connectButton = document.getElementById('connect-button');
+            const terminal = document.getElementById('terminal');
+            
+            // Hide terminal initially
+            terminal.style.opacity = '0';
+            
+            connectButton.addEventListener('click', () => {
+                // Play connection sound
+                soundManager.init();
+                soundManager.playSystemBusy();
+                
+                // Animate button press
+                connectButton.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    connectButton.style.transform = 'scale(1)';
+                    
+                    // Fade out start screen
+                    startScreen.style.transition = 'opacity 1s';
+                    startScreen.style.opacity = '0';
+                    
+                    // Fade in terminal
+                    terminal.style.transition = 'opacity 1s';
+                    terminal.style.opacity = '1';
+                    
+                    // Remove start screen after animation
+                    setTimeout(() => {
+                        startScreen.remove();
+                        if (initializeGame()) {
+                            terminalUI.initializeTerminal();
+                        }
+                    }, 1000);
+                    
+                    // Start background music on first click
+                    soundManager.playBackgroundMusic();
+                }, 100);
+            });
+        });
+
+        function restartGame() {
+            resetGame();
+            initializeGame();
+            terminalUI.resetTerminalOutput();
+            terminalUI.updateDisplay(storyCore.phases[0]);
+            terminalUI.createCommandButtons();
+            // Restart background music with new pattern
+            soundManager.stopBackgroundMusic();
+            soundManager.playBackgroundMusic();
+        }
+    </script>
+</body>
+</html>
